@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -7,6 +8,7 @@ pub mod structure;
 use calculations::*;
 use structure::*;
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NeatConfig {
     pub input_size: usize,
     pub output_size: usize,
