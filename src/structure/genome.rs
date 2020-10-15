@@ -1,10 +1,11 @@
 use super::*;
+use rand::Rng;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::{Rc, Weak};
 
 pub struct Genome {
-    neat: Weak<RefCell<Neat>>,
+    pub neat: Weak<RefCell<Neat>>,
     pub nodes: HashSet<NodeGene>,
     pub connections: Vec<ConnectionGene>,
 }
@@ -15,14 +16,12 @@ impl Genome {
         let config = &neat.borrow().config;
         for i in 0..config.input_size {
             nodes.insert(NodeGene::new(
-                i,
                 0.0,
                 (i as f32 + 1.0) / (config.input_size as f32 + 1.0),
             ));
         }
         for i in 0..config.output_size {
             nodes.insert(NodeGene::new(
-                config.input_size + i,
                 1.0,
                 (i as f32 + 1.0) / (config.output_size as f32 + 1.0),
             ));
@@ -87,4 +86,113 @@ impl Genome {
             + neat_config.weight_diff * weight_diff)
             / n
     }
+    pub fn cross_over(genome1: &Genome, genome2: &Genome) -> Genome {
+        let mut genome = Genome::empty(&genome1.neat.upgrade().unwrap());
+
+        let mut index1 = 0;
+        let mut index2 = 0;
+
+        while index1 < genome1.connections.len() && index2 < genome2.connections.len() {
+            let con1 = genome1.connections.get(index1).unwrap();
+            let con2 = genome2.connections.get(index2).unwrap();
+
+            if con1.innovation_number == con2.innovation_number {
+                if rand::thread_rng().gen_bool(0.5) {
+                    genome.connections.push(con1.clone());
+                } else {
+                    genome.connections.push(con2.clone());
+                }
+                index1 += 1;
+                index2 += 1;
+            } else if con1.innovation_number > con2.innovation_number {
+                index2 += 1;
+            } else {
+                genome.connections.push(con1.clone());
+                index1 += 1;
+            }
+        }
+
+        while index1 < genome1.connections.len() {
+            let con1 = genome1.connections.get(index1).unwrap();
+            genome.connections.push(con1.clone());
+            index1 += 1;
+        }
+
+        for connection in &genome.connections {
+            genome.nodes.insert(connection.node_from.clone());
+            genome.nodes.insert(connection.node_to.clone());
+        }
+
+        genome
+    }
+    pub fn mutate(&mut self, neat: &NeatConfig) {
+        let mut random = rand::thread_rng();
+        if random.gen::<f32>() <= neat.probability_mutate_link {
+            self.mutate_link(neat);
+        }
+        if random.gen::<f32>() <= neat.probability_mutate_node {
+            self.mutate_node(neat);
+        }
+        if random.gen::<f32>() <= neat.probability_mutate_weight_shift {
+            self.mutate_weight_shift(neat);
+        }
+        if random.gen::<f32>() <= neat.probability_mutate_weight_random {
+            self.mutate_weight_random(neat);
+        }
+        if random.gen::<f32>() <= neat.probability_mutate_link_toggle {
+            self.mutate_link_toggle();
+        }
+    }
+    fn mutate_link(&mut self, neat: &NeatConfig) {
+        let mut random = rand::thread_rng();
+        if self.nodes.len() >= 2 {
+            for _ in 0..10 {
+                let index1 = random.gen_range(0, self.nodes.len());
+                let index2 = random.gen_range(0, self.nodes.len());
+
+                let mut node1 = None;
+                let mut node2 = None;
+                for (index, node) in self.nodes.iter().enumerate() {
+                    if index == index1 {
+                        node1 = Some(node.clone());
+                    }
+                    if index == index2 {
+                        node2 = Some(node.clone());
+                    }
+                }
+
+                let node1 = node1.unwrap();
+                let node2 = node2.unwrap();
+
+                if node1.x == node2.x {
+                    continue;
+                }
+
+                let (node_from, node_to) = if node1.x < node2.x {
+                    (node1, node2)
+                } else {
+                    (node2, node1)
+                };
+
+                if self.connections.iter().any(|connection| {
+                    connection.node_from == node_from && connection.node_to == node_to
+                }) {
+                    continue;
+                }
+
+                let connection = ConnectionGene {
+                    gene: Gene::new(),
+                    node_from,
+                    node_to,
+                    weight: (random.gen::<f32>() * 2.0 - 1.0) * neat.weight_shift_strength,
+                    enabled: true,
+                };
+                self.connections.push(connection);
+            }
+        }
+    }
+    fn mutate_node(&mut self, neat: &NeatConfig) {}
+    fn mutate_weight_shift(&mut self, neat: &NeatConfig) {}
+    fn mutate_weight_random(&mut self, neat: &NeatConfig) {}
+    fn mutate_link_toggle(&mut self) {}
 }

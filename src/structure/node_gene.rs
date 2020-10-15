@@ -9,9 +9,9 @@ pub struct NodeGene {
 }
 
 impl NodeGene {
-    pub fn new(innovation_number: usize, x: f32, y: f32) -> Self {
+    pub fn new(x: f32, y: f32) -> Self {
         Self {
-            gene: Gene::new(innovation_number),
+            gene: Gene::new(),
             x,
             y,
         }
