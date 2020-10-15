@@ -5,16 +5,27 @@ use std::rc::{Rc, Weak};
 
 pub struct Genome {
     neat: Weak<RefCell<Neat>>,
-    nodes: HashSet<NodeGene>,
-    connections: Vec<ConnectionGene>,
+    pub nodes: HashSet<NodeGene>,
+    pub connections: Vec<ConnectionGene>,
 }
 
 impl Genome {
     pub fn empty(neat: &Rc<RefCell<Neat>>) -> Self {
         let mut nodes = HashSet::new();
         let config = &neat.borrow().config;
-        for i in 0..(config.input_size + config.output_size) {
-            nodes.insert(NodeGene::new(i));
+        for i in 0..config.input_size {
+            nodes.insert(NodeGene::new(
+                i,
+                0.0,
+                (i as f32 + 1.0) / (config.input_size as f32 + 1.0),
+            ));
+        }
+        for i in 0..config.output_size {
+            nodes.insert(NodeGene::new(
+                config.input_size + i,
+                1.0,
+                (i as f32 + 1.0) / (config.output_size as f32 + 1.0),
+            ));
         }
         Self {
             neat: Rc::downgrade(neat),

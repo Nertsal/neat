@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Copy, Clone, Debug)]
 pub struct NodeGene {
@@ -8,12 +9,23 @@ pub struct NodeGene {
 }
 
 impl NodeGene {
-    pub fn new(innovation_number: usize) -> Self {
+    pub fn new(innovation_number: usize, x: f32, y: f32) -> Self {
         Self {
             gene: Gene::new(innovation_number),
-            x: 0.0,
-            y: 0.0,
+            x,
+            y,
         }
+    }
+    pub fn calculate(
+        &self,
+        connections: &HashSet<ConnectionGene>,
+        output: &HashMap<Gene, f32>,
+    ) -> f32 {
+        connections
+            .iter()
+            .filter(|connection| connection.enabled && connection.node_to == *self)
+            .map(|connection| connection.weight * output[&connection.node_from.gene])
+            .sum()
     }
 }
 

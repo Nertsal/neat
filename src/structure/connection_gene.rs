@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Copy, Clone, Debug)]
 pub struct ConnectionGene {
     pub gene: Gene,
     pub node_from: NodeGene,
@@ -37,5 +38,19 @@ impl std::ops::Deref for ConnectionGene {
 impl std::ops::DerefMut for ConnectionGene {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.gene
+    }
+}
+
+impl PartialEq for ConnectionGene {
+    fn eq(&self, other: &Self) -> bool {
+        self.gene == other.gene
+    }
+}
+
+impl Eq for ConnectionGene {}
+
+impl std::hash::Hash for ConnectionGene {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.gene.hash(state);
     }
 }

@@ -17,4 +17,7 @@ impl Client {
             score: 0.0,
         }
     }
+    pub fn calculate(&self, input: Vec<f32>) -> Vec<f32> {
+        self.calculator.calculate(input)
+    }
 }

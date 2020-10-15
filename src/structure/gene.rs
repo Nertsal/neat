@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Debug, Hash, Copy, Clone, Eq, PartialEq)]
 pub struct Gene {
     pub innovation_number: usize,

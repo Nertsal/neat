@@ -1,11 +1,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-mod calculations;
-mod structure;
+pub mod calculations;
+pub mod structure;
 
-pub use calculations::*;
-pub use structure::*;
+use calculations::*;
+use structure::*;
 
 pub struct NeatConfig {
     pub input_size: usize,
@@ -33,23 +33,5 @@ impl Neat {
             neat.borrow_mut().clients.push(Rc::new(client));
         }
         neat
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let neat_config = NeatConfig {
-            input_size: 5,
-            output_size: 1,
-            max_clients: 5,
-            disjoint: 1.0,
-            excess: 1.0,
-            weight_diff: 1.0,
-        };
-        let neat = Neat::new(neat_config);
     }
 }
