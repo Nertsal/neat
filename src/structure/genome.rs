@@ -57,17 +57,9 @@ impl Genome {
             nodes_output.insert(input_node.gene, input[index]);
         }
 
-        for hidden_node in &self.hidden_nodes {
-            nodes_output.insert(
-                hidden_node.gene,
-                hidden_node.calculate(&self.connections, &nodes_output),
-            );
-        }
-
         let mut output = Vec::with_capacity(self.output_nodes.len());
         for output_node in &self.output_nodes {
-            let value = output_node.calculate(&self.connections, &nodes_output);
-            nodes_output.insert(output_node.gene, value);
+            let value = output_node.calculate(&self.connections, &mut nodes_output);
             output.push(value);
         }
 
@@ -182,7 +174,7 @@ impl Genome {
             self.mutate_weight_shift(neat_config);
         }
         if random.gen::<f32>() <= neat_config.probability_mutate_weight_random {
-            self.mutate_weight_random();
+            self.mutate_weight_random(neat_config);
         }
         if random.gen::<f32>() <= neat_config.probability_mutate_link_toggle {
             self.mutate_link_toggle();
@@ -292,6 +284,20 @@ impl Genome {
             connection.weight += random.gen_range(-1.0, 1.0) * neat_config.weight_shift_strength;
         }
     }
-    fn mutate_weight_random(&mut self) {}
-    fn mutate_link_toggle(&mut self) {}
+    fn mutate_weight_random(&mut self, neat_config: &NeatConfig) {
+        let count = self.connections.len();
+        if count >= 1 {
+            let mut random = rand::thread_rng();
+            let connection = &mut self.connections[random.gen_range(0, count)];
+            connection.weight = random.gen_range(-1.0, 1.0) * neat_config.weight_random_strength;
+        }
+    }
+    fn mutate_link_toggle(&mut self) {
+        let count = self.connections.len();
+        if count >= 1 {
+            let mut random = rand::thread_rng();
+            let connection = &mut self.connections[random.gen_range(0, count)];
+            connection.enabled = !connection.enabled;
+        }
+    }
 }

@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 pub mod structure;
 
-use std::collections::HashSet;
 use structure::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -22,6 +22,7 @@ pub struct NeatConfig {
     pub probability_mutate_weight_random: f32,
     pub probability_mutate_link_toggle: f32,
     pub weight_shift_strength: f32,
+    pub weight_random_strength: f32,
     pub clients_mutation_rate: f32,
 }
 
