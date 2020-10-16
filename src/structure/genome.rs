@@ -125,25 +125,25 @@ impl Genome {
 
         genome
     }
-    pub fn mutate(&mut self, neat: &NeatConfig) {
+    pub fn mutate(&mut self, neat: &NeatConfig, connection_genes: &mut HashSet<ConnectionGene>) {
         let mut random = rand::thread_rng();
         if random.gen::<f32>() <= neat.probability_mutate_link {
-            self.mutate_link(neat);
+            self.mutate_link(neat, connection_genes);
         }
         if random.gen::<f32>() <= neat.probability_mutate_node {
-            self.mutate_node(neat);
+            self.mutate_node(neat, connection_genes);
         }
         if random.gen::<f32>() <= neat.probability_mutate_weight_shift {
-            self.mutate_weight_shift(neat);
+            self.mutate_weight_shift();
         }
         if random.gen::<f32>() <= neat.probability_mutate_weight_random {
-            self.mutate_weight_random(neat);
+            self.mutate_weight_random();
         }
         if random.gen::<f32>() <= neat.probability_mutate_link_toggle {
             self.mutate_link_toggle();
         }
     }
-    fn mutate_link(&mut self, neat: &NeatConfig) {
+    fn mutate_link(&mut self, neat: &NeatConfig, connection_genes: &mut HashSet<ConnectionGene>) {
         let mut random = rand::thread_rng();
         if self.nodes.len() >= 2 {
             for _ in 0..10 {
@@ -180,19 +180,61 @@ impl Genome {
                     continue;
                 }
 
-                let connection = ConnectionGene {
-                    gene: Gene::new(),
+                let connection = Neat::get_connection_gene(
+                    connection_genes,
                     node_from,
                     node_to,
-                    weight: (random.gen::<f32>() * 2.0 - 1.0) * neat.weight_shift_strength,
-                    enabled: true,
-                };
+                    (random.gen::<f32>() * 2.0 - 1.0) * neat.weight_shift_strength,
+                    true,
+                );
                 self.connections.push(connection);
             }
         }
     }
-    fn mutate_node(&mut self, neat: &NeatConfig) {}
-    fn mutate_weight_shift(&mut self, neat: &NeatConfig) {}
-    fn mutate_weight_random(&mut self, neat: &NeatConfig) {}
+    fn mutate_node(&mut self, neat: &NeatConfig, connection_genes: &mut HashSet<ConnectionGene>) {
+        if self.connections.len() >= 1 {
+            let mut random = rand::thread_rng();
+            let connection = &self.connections[random.gen_range(0, self.connections.len())];
+            let node_from = connection.node_from;
+            let node_to = connection.node_to;
+            let mut connection = connection_genes
+                .iter()
+                .find(|connection| {
+                    connection.node_from == node_from && connection.node_to == node_to
+                })
+                .unwrap()
+                .clone();
+            let middle_x = (node_from.x + node_to.x) / 2.0;
+            let middle_y = (node_from.y + node_to.y) / 2.0;
+            let middle = match connection.replace_gene {
+                Some(gene) => NodeGene {
+                    gene,
+                    x: middle_x,
+                    y: middle_y,
+                },
+                None => NodeGene {
+                    gene: Gene::new(),
+                    x: middle_x,
+                    y: middle_y,
+                },
+            };
+            connection.replace_gene = Some(middle.gene);
+
+            let weight = connection.weight;
+            let enabled = connection.enabled;
+
+            connection_genes.replace(connection);
+
+            let connection1 =
+                Neat::get_connection_gene(connection_genes, node_from, middle, 1.0, true);
+            let connection2 =
+                Neat::get_connection_gene(connection_genes, middle, node_to, weight, enabled);
+            self.nodes.insert(middle);
+            self.connections.push(connection1);
+            self.connections.push(connection2);
+        }
+    }
+    fn mutate_weight_shift(&mut self) {}
+    fn mutate_weight_random(&mut self) {}
     fn mutate_link_toggle(&mut self) {}
 }

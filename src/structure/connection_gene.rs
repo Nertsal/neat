@@ -7,6 +7,7 @@ pub struct ConnectionGene {
     pub node_to: NodeGene,
     pub weight: f32,
     pub enabled: bool,
+    pub replace_gene: Option<Gene>,
 }
 
 impl ConnectionGene {
@@ -23,6 +24,7 @@ impl ConnectionGene {
             node_to,
             weight,
             enabled,
+            replace_gene: None,
         }
     }
 }

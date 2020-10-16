@@ -6,6 +6,7 @@ pub mod calculations;
 pub mod structure;
 
 use calculations::*;
+use std::collections::HashSet;
 use structure::*;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -29,6 +30,7 @@ pub struct NeatConfig {
 pub struct Neat {
     pub config: NeatConfig,
     pub clients: Vec<Rc<RefCell<Client>>>,
+    pub connection_genes: HashSet<ConnectionGene>,
 }
 
 impl Neat {
@@ -37,6 +39,7 @@ impl Neat {
         let neat = Rc::new(RefCell::new(Self {
             config: neat_config,
             clients: Vec::with_capacity(clients_count),
+            connection_genes: HashSet::new(),
         }));
         for _ in 0..clients_count {
             let client = Client::new(Genome::empty(&neat));
@@ -67,7 +70,35 @@ impl Neat {
         });
         let skip = (self.clients.len() as f32 * (1.0 - self.config.clients_mutation_rate)) as usize;
         for client in self.clients.iter_mut().skip(skip) {
-            client.borrow_mut().genome.mutate(&self.config);
+            client
+                .borrow_mut()
+                .genome
+                .mutate(&self.config, &mut self.connection_genes);
+        }
+    }
+    fn get_connection_gene(
+        connection_genes: &mut HashSet<ConnectionGene>,
+        node_from: NodeGene,
+        node_to: NodeGene,
+        weight: f32,
+        enabled: bool,
+    ) -> ConnectionGene {
+        if let Some(connection) = connection_genes
+            .iter()
+            .find(|connection| connection.node_from == node_from && connection.node_to == node_to)
+        {
+            connection.clone()
+        } else {
+            let connection = ConnectionGene {
+                gene: Gene::new(),
+                node_from,
+                node_to,
+                weight,
+                enabled,
+                replace_gene: None,
+            };
+            connection_genes.insert(connection);
+            connection
         }
     }
 }
