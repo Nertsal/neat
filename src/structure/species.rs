@@ -1,6 +1,7 @@
 use super::*;
 use rand::Rng;
 
+#[derive(Debug)]
 pub struct Species {
     pub clients: Vec<Rc<Client>>,
     pub representative: Rc<Client>,

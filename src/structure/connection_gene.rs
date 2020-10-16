@@ -37,12 +37,6 @@ impl std::ops::Deref for ConnectionGene {
     }
 }
 
-impl std::ops::DerefMut for ConnectionGene {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.gene
-    }
-}
-
 impl PartialEq for ConnectionGene {
     fn eq(&self, other: &Self) -> bool {
         self.gene == other.gene

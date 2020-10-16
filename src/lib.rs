@@ -2,10 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub mod calculations;
 pub mod structure;
 
-use calculations::*;
 use std::collections::HashSet;
 use structure::*;
 
@@ -27,6 +25,7 @@ pub struct NeatConfig {
     pub clients_mutation_rate: f32,
 }
 
+#[derive(Debug)]
 pub struct Neat {
     pub config: NeatConfig,
     pub clients: Vec<Rc<RefCell<Client>>>,
@@ -35,6 +34,10 @@ pub struct Neat {
 
 impl Neat {
     pub fn new(neat_config: NeatConfig) -> Rc<RefCell<Self>> {
+        for _ in 0..(neat_config.input_size + neat_config.output_size) {
+            Gene::new();
+        }
+
         let clients_count = neat_config.max_clients;
         let neat = Rc::new(RefCell::new(Self {
             config: neat_config,

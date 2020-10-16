@@ -1,36 +1,77 @@
 use super::*;
 use rand::Rng;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 use std::rc::{Rc, Weak};
 
+#[derive(Debug)]
 pub struct Genome {
     pub neat: Weak<RefCell<Neat>>,
-    pub nodes: HashSet<NodeGene>,
+    pub input_nodes: HashSet<NodeGene>,
+    pub hidden_nodes: HashSet<NodeGene>,
+    pub output_nodes: HashSet<NodeGene>,
     pub connections: Vec<ConnectionGene>,
 }
 
 impl Genome {
     pub fn empty(neat: &Rc<RefCell<Neat>>) -> Self {
-        let mut nodes = HashSet::new();
+        let mut input_nodes = HashSet::new();
+        let mut output_nodes = HashSet::new();
         let config = &neat.borrow().config;
         for i in 0..config.input_size {
-            nodes.insert(NodeGene::new(
+            input_nodes.insert(NodeGene::new(
+                i,
                 0.0,
                 (i as f32 + 1.0) / (config.input_size as f32 + 1.0),
             ));
         }
         for i in 0..config.output_size {
-            nodes.insert(NodeGene::new(
+            output_nodes.insert(NodeGene::new(
+                config.input_size + i,
                 1.0,
                 (i as f32 + 1.0) / (config.output_size as f32 + 1.0),
             ));
         }
         Self {
             neat: Rc::downgrade(neat),
-            nodes,
+            input_nodes,
+            hidden_nodes: HashSet::new(),
+            output_nodes,
             connections: Vec::new(),
         }
+    }
+    pub fn nodes(&self) -> Vec<NodeGene> {
+        Vec::from_iter(
+            self.input_nodes
+                .iter()
+                .map(|node| node.clone())
+                .chain(self.hidden_nodes.iter().map(|node| node.clone()))
+                .chain(self.output_nodes.iter().map(|node| node.clone())),
+        )
+    }
+    pub fn calculate(&self, input: Vec<f32>) -> Vec<f32> {
+        let mut nodes_output = HashMap::new();
+
+        for (index, input_node) in self.input_nodes.iter().enumerate() {
+            nodes_output.insert(input_node.gene, input[index]);
+        }
+
+        for hidden_node in &self.hidden_nodes {
+            nodes_output.insert(
+                hidden_node.gene,
+                hidden_node.calculate(&self.connections, &nodes_output),
+            );
+        }
+
+        let mut output = Vec::with_capacity(self.output_nodes.len());
+        for output_node in &self.output_nodes {
+            let value = output_node.calculate(&self.connections, &nodes_output);
+            nodes_output.insert(output_node.gene, value);
+            output.push(value);
+        }
+
+        output
     }
     pub fn distance(&self, other: &Self) -> f32 {
         let highest_gene1 = if let Some(gene) = self.connections.last() {
@@ -119,40 +160,49 @@ impl Genome {
         }
 
         for connection in &genome.connections {
-            genome.nodes.insert(connection.node_from.clone());
-            genome.nodes.insert(connection.node_to.clone());
+            genome.hidden_nodes.insert(connection.node_from.clone());
+            genome.hidden_nodes.insert(connection.node_to.clone());
         }
 
         genome
     }
-    pub fn mutate(&mut self, neat: &NeatConfig, connection_genes: &mut HashSet<ConnectionGene>) {
+    pub fn mutate(
+        &mut self,
+        neat_config: &NeatConfig,
+        connection_genes: &mut HashSet<ConnectionGene>,
+    ) {
         let mut random = rand::thread_rng();
-        if random.gen::<f32>() <= neat.probability_mutate_link {
-            self.mutate_link(neat, connection_genes);
+        if random.gen::<f32>() <= neat_config.probability_mutate_link {
+            self.mutate_link(neat_config, connection_genes);
         }
-        if random.gen::<f32>() <= neat.probability_mutate_node {
-            self.mutate_node(neat, connection_genes);
+        if random.gen::<f32>() <= neat_config.probability_mutate_node {
+            self.mutate_node(connection_genes);
         }
-        if random.gen::<f32>() <= neat.probability_mutate_weight_shift {
-            self.mutate_weight_shift();
+        if random.gen::<f32>() <= neat_config.probability_mutate_weight_shift {
+            self.mutate_weight_shift(neat_config);
         }
-        if random.gen::<f32>() <= neat.probability_mutate_weight_random {
+        if random.gen::<f32>() <= neat_config.probability_mutate_weight_random {
             self.mutate_weight_random();
         }
-        if random.gen::<f32>() <= neat.probability_mutate_link_toggle {
+        if random.gen::<f32>() <= neat_config.probability_mutate_link_toggle {
             self.mutate_link_toggle();
         }
     }
-    fn mutate_link(&mut self, neat: &NeatConfig, connection_genes: &mut HashSet<ConnectionGene>) {
+    fn mutate_link(
+        &mut self,
+        neat_config: &NeatConfig,
+        connection_genes: &mut HashSet<ConnectionGene>,
+    ) {
         let mut random = rand::thread_rng();
-        if self.nodes.len() >= 2 {
+        let nodes = self.nodes();
+        if nodes.len() >= 2 {
             for _ in 0..10 {
-                let index1 = random.gen_range(0, self.nodes.len());
-                let index2 = random.gen_range(0, self.nodes.len());
+                let index1 = random.gen_range(0, nodes.len());
+                let index2 = random.gen_range(0, nodes.len());
 
                 let mut node1 = None;
                 let mut node2 = None;
-                for (index, node) in self.nodes.iter().enumerate() {
+                for (index, node) in nodes.iter().enumerate() {
                     if index == index1 {
                         node1 = Some(node.clone());
                     }
@@ -169,9 +219,9 @@ impl Genome {
                 }
 
                 let (node_from, node_to) = if node1.x < node2.x {
-                    (node1, node2)
+                    (node1.clone(), node2.clone())
                 } else {
-                    (node2, node1)
+                    (node2.clone(), node1.clone())
                 };
 
                 if self.connections.iter().any(|connection| {
@@ -184,14 +234,14 @@ impl Genome {
                     connection_genes,
                     node_from,
                     node_to,
-                    (random.gen::<f32>() * 2.0 - 1.0) * neat.weight_shift_strength,
+                    random.gen_range(-1.0, 1.0) * neat_config.weight_shift_strength,
                     true,
                 );
                 self.connections.push(connection);
             }
         }
     }
-    fn mutate_node(&mut self, neat: &NeatConfig, connection_genes: &mut HashSet<ConnectionGene>) {
+    fn mutate_node(&mut self, connection_genes: &mut HashSet<ConnectionGene>) {
         if self.connections.len() >= 1 {
             let mut random = rand::thread_rng();
             let connection = &self.connections[random.gen_range(0, self.connections.len())];
@@ -229,12 +279,19 @@ impl Genome {
                 Neat::get_connection_gene(connection_genes, node_from, middle, 1.0, true);
             let connection2 =
                 Neat::get_connection_gene(connection_genes, middle, node_to, weight, enabled);
-            self.nodes.insert(middle);
+            self.hidden_nodes.insert(middle);
             self.connections.push(connection1);
             self.connections.push(connection2);
         }
     }
-    fn mutate_weight_shift(&mut self) {}
+    fn mutate_weight_shift(&mut self, neat_config: &NeatConfig) {
+        let count = self.connections.len();
+        if count >= 1 {
+            let mut random = rand::thread_rng();
+            let connection = &mut self.connections[random.gen_range(0, count)];
+            connection.weight += random.gen_range(-1.0, 1.0) * neat_config.weight_shift_strength;
+        }
+    }
     fn mutate_weight_random(&mut self) {}
     fn mutate_link_toggle(&mut self) {}
 }
