@@ -1,3 +1,4 @@
+use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -16,6 +17,8 @@ pub struct NeatConfig {
     pub excess: f32,
     pub weight_diff: f32,
     pub cp: f32,
+    pub cp_change_rate: f32,
+    pub target_species_count: usize,
     pub probability_mutate_link: f32,
     pub probability_mutate_node: f32,
     pub probability_mutate_weight_shift: f32,
@@ -24,6 +27,7 @@ pub struct NeatConfig {
     pub weight_shift_strength: f32,
     pub weight_random_strength: f32,
     pub clients_mutation_rate: f32,
+    pub survivors_percentage: f32,
 }
 
 #[derive(Debug)]
@@ -31,6 +35,7 @@ pub struct Neat {
     pub config: NeatConfig,
     pub clients: Vec<Rc<RefCell<Client>>>,
     pub connection_genes: HashSet<ConnectionGene>,
+    pub species: Vec<Species>,
 }
 
 impl Neat {
@@ -40,30 +45,101 @@ impl Neat {
         }
 
         let clients_count = neat_config.max_clients;
-        let neat = Rc::new(RefCell::new(Self {
+        let mut neat = Self {
             config: neat_config,
             clients: Vec::with_capacity(clients_count),
             connection_genes: HashSet::new(),
-        }));
+            species: Vec::new(),
+        };
         for _ in 0..clients_count {
-            let client = Client::new(Genome::empty(&neat));
-            neat.borrow_mut()
-                .clients
-                .push(Rc::new(RefCell::new(client)));
+            let client = Client::new(Genome::empty(&neat.config));
+            neat.clients.push(Rc::new(RefCell::new(client)));
         }
-        neat
+        Rc::new(RefCell::new(neat))
     }
     pub fn evolve(&mut self) {
+        println!("Generating species...");
         self.gen_species();
+        println!("{} species exist.", self.species.len());
+        println!("Killing worst clients...");
         self.kill();
+        println!("Remove extinct species...");
         self.remove_extinct_species();
+        println!("{} species left.", self.species.len());
+        println!("Reproducing...");
         self.reproduce();
+        println!("Mutating clients...");
         self.mutate();
     }
-    fn gen_species(&mut self) {}
-    fn kill(&mut self) {}
-    fn remove_extinct_species(&mut self) {}
-    fn reproduce(&mut self) {}
+    fn gen_species(&mut self) {
+        for species in &mut self.species {
+            species.reset();
+        }
+        for client in &self.clients {
+            if self
+                .species
+                .iter()
+                .any(|species| species.clients.contains(client))
+            {
+                continue;
+            }
+            let mut found = false;
+            for species in &mut self.species {
+                if species.insert(client, &self.config) {
+                    println!("Found species");
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                self.species.push(Species {
+                    clients: vec![client.clone()],
+                    representative: client.clone(),
+                    score: 0.0,
+                });
+            }
+        }
+        for species in &mut self.species {
+            species.evaluate_score();
+        }
+        self.config.cp += self.config.cp_change_rate
+            * (self.species.len() as f32 - self.config.target_species_count as f32);
+        self.config.cp = self.config.cp.max(0.1);
+    }
+    fn kill(&mut self) {
+        for species in &mut self.species {
+            species.kill(1.0 - self.config.survivors_percentage);
+        }
+    }
+    fn remove_extinct_species(&mut self) {
+        for i in (0..self.species.len()).rev() {
+            if self.species[i].clients.len() <= 1 {
+                self.species.remove(i);
+            }
+        }
+    }
+    fn reproduce(&mut self) {
+        for client in &mut self.clients {
+            if self
+                .species
+                .iter()
+                .any(|species| species.clients.contains(client))
+            {
+                continue;
+            }
+            let mut random = rand::thread_rng();
+            match self
+                .species
+                .choose_weighted_mut(&mut random, |species| species.score)
+            {
+                Ok(species) => {
+                    client.borrow_mut().genome = species.breed(&self.config);
+                    species.insert_force(client);
+                }
+                Err(_) => (),
+            }
+        }
+    }
     fn mutate(&mut self) {
         self.clients.sort_by(|client1, client2| {
             client2
@@ -93,14 +169,7 @@ impl Neat {
         {
             connection.clone()
         } else {
-            let connection = ConnectionGene {
-                gene: Gene::new(),
-                node_from,
-                node_to,
-                weight,
-                enabled,
-                replace_gene: None,
-            };
+            let connection = ConnectionGene::new(Gene::new(), node_from, node_to, weight, enabled);
             connection_genes.insert(connection);
             connection
         }

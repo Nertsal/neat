@@ -1,13 +1,10 @@
 use super::*;
 use rand::Rng;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use std::rc::{Rc, Weak};
 
 #[derive(Debug)]
 pub struct Genome {
-    pub neat: Weak<RefCell<Neat>>,
     pub input_nodes: HashSet<NodeGene>,
     pub hidden_nodes: HashSet<NodeGene>,
     pub output_nodes: HashSet<NodeGene>,
@@ -15,26 +12,24 @@ pub struct Genome {
 }
 
 impl Genome {
-    pub fn empty(neat: &Rc<RefCell<Neat>>) -> Self {
+    pub fn empty(neat_config: &NeatConfig) -> Self {
         let mut input_nodes = HashSet::new();
         let mut output_nodes = HashSet::new();
-        let config = &neat.borrow().config;
-        for i in 0..config.input_size {
+        for i in 0..neat_config.input_size {
             input_nodes.insert(NodeGene::new(
                 i,
                 0.0,
-                (i as f32 + 1.0) / (config.input_size as f32 + 1.0),
+                (i as f32 + 1.0) / (neat_config.input_size as f32 + 1.0),
             ));
         }
-        for i in 0..config.output_size {
+        for i in 0..neat_config.output_size {
             output_nodes.insert(NodeGene::new(
-                config.input_size + i,
+                neat_config.input_size + i,
                 1.0,
-                (i as f32 + 1.0) / (config.output_size as f32 + 1.0),
+                (i as f32 + 1.0) / (neat_config.output_size as f32 + 1.0),
             ));
         }
         Self {
-            neat: Rc::downgrade(neat),
             input_nodes,
             hidden_nodes: HashSet::new(),
             output_nodes,
@@ -65,7 +60,7 @@ impl Genome {
 
         output
     }
-    pub fn distance(&self, other: &Self) -> f32 {
+    pub fn distance(&self, other: &Self, neat_config: &NeatConfig) -> f32 {
         let highest_gene1 = if let Some(gene) = self.connections.last() {
             gene.innovation_number
         } else {
@@ -90,8 +85,8 @@ impl Genome {
         let mut similar = 0;
 
         while index1 < genome1.connections.len() && index2 < genome2.connections.len() {
-            let con1 = genome1.connections.get(index1).unwrap();
-            let con2 = genome2.connections.get(index2).unwrap();
+            let con1 = &genome1.connections[index1];
+            let con2 = &genome2.connections[index2];
 
             if con1.innovation_number == con2.innovation_number {
                 similar += 1;
@@ -111,16 +106,14 @@ impl Genome {
         let excess = genome1.connections.len() - index1;
 
         let n = genome1.connections.len().max(genome2.connections.len()) as f32;
-        let neat = self.neat.upgrade().unwrap();
-        let neat_config = &neat.borrow().config;
 
         (neat_config.disjoint * disjoint as f32
             + neat_config.excess * excess as f32
             + neat_config.weight_diff * weight_diff)
             / n
     }
-    pub fn cross_over(genome1: &Genome, genome2: &Genome) -> Genome {
-        let mut genome = Genome::empty(&genome1.neat.upgrade().unwrap());
+    pub fn cross_over(genome1: &Genome, genome2: &Genome, neat_config: &NeatConfig) -> Genome {
+        let mut genome = Genome::empty(neat_config);
 
         let mut index1 = 0;
         let mut index2 = 0;
@@ -230,6 +223,8 @@ impl Genome {
                     true,
                 );
                 self.connections.push(connection);
+                self.connections
+                    .sort_by(|con1, con2| con1.innovation_number.cmp(&con2.innovation_number))
             }
         }
     }
@@ -274,6 +269,8 @@ impl Genome {
             self.hidden_nodes.insert(middle);
             self.connections.push(connection1);
             self.connections.push(connection2);
+            self.connections
+                .sort_by(|con1, con2| con1.innovation_number.cmp(&con2.innovation_number))
         }
     }
     fn mutate_weight_shift(&mut self, neat_config: &NeatConfig) {
@@ -299,5 +296,11 @@ impl Genome {
             let connection = &mut self.connections[random.gen_range(0, count)];
             connection.enabled = !connection.enabled;
         }
+    }
+}
+
+impl PartialEq for Genome {
+    fn eq(&self, other: &Self) -> bool {
+        self.nodes() == other.nodes() && self.connections == other.connections
     }
 }
