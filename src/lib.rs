@@ -52,7 +52,7 @@ impl Neat {
             species: Vec::new(),
         };
         for _ in 0..clients_count {
-            let client = Client::new(Genome::start(&mut neat));
+            let client = Client::new(Genome::empty(&neat.config));
             neat.clients.push(Rc::new(RefCell::new(client)));
         }
         Rc::new(RefCell::new(neat))

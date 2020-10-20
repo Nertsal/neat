@@ -36,59 +36,6 @@ impl Genome {
             connections: Vec::new(),
         }
     }
-    pub fn start(neat: &mut Neat) -> Self {
-        let mut input_nodes = HashSet::with_capacity(neat.config.input_size);
-        let mut output_nodes = HashSet::with_capacity(neat.config.output_size);
-        for i in 0..neat.config.input_size {
-            input_nodes.insert(NodeGene::new(
-                i,
-                0.0,
-                (i as f32 + 1.0) / (neat.config.input_size as f32 + 1.0),
-            ));
-        }
-        for i in 0..neat.config.output_size {
-            output_nodes.insert(NodeGene::new(
-                neat.config.input_size + i,
-                1.0,
-                (i as f32 + 1.0) / (neat.config.output_size as f32 + 1.0),
-            ));
-        }
-
-        let mut connections = Vec::new();
-        let output = output_nodes
-            .iter()
-            .find(|node| node.gene.innovation_number == 5)
-            .unwrap();
-        connections.push(Neat::get_connection_gene(
-            &mut neat.connection_genes,
-            input_nodes
-                .iter()
-                .find(|node| node.gene.innovation_number == 0)
-                .unwrap()
-                .clone(),
-            output.clone(),
-            0.3,
-            true,
-        ));
-        connections.push(Neat::get_connection_gene(
-            &mut neat.connection_genes,
-            input_nodes
-                .iter()
-                .find(|node| node.gene.innovation_number == 3)
-                .unwrap()
-                .clone(),
-            output.clone(),
-            -1.0,
-            true,
-        ));
-
-        Self {
-            input_nodes,
-            hidden_nodes: HashSet::new(),
-            output_nodes,
-            connections,
-        }
-    }
     pub fn nodes(&self) -> Vec<NodeGene> {
         Vec::from_iter(
             self.input_nodes
