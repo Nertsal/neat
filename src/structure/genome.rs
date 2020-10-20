@@ -37,8 +37,8 @@ impl Genome {
         }
     }
     pub fn start(neat: &mut Neat) -> Self {
-        let mut input_nodes = HashSet::new();
-        let mut output_nodes = HashSet::new();
+        let mut input_nodes = HashSet::with_capacity(neat.config.input_size);
+        let mut output_nodes = HashSet::with_capacity(neat.config.output_size);
         for i in 0..neat.config.input_size {
             input_nodes.insert(NodeGene::new(
                 i,
@@ -67,7 +67,7 @@ impl Genome {
                 .unwrap()
                 .clone(),
             output.clone(),
-            1.0,
+            0.3,
             true,
         ));
         connections.push(Neat::get_connection_gene(
@@ -99,16 +99,37 @@ impl Genome {
         )
     }
     pub fn calculate(&self, input: Vec<f32>) -> Vec<f32> {
-        let mut nodes_output = HashMap::new();
+        assert_eq!(input.len(), self.input_nodes.len());
 
-        for (index, input_node) in self.input_nodes.iter().enumerate() {
-            nodes_output.insert(input_node.gene, input[index]);
+        let mut nodes_output = HashMap::with_capacity(
+            self.input_nodes.len() + self.hidden_nodes.len() + self.output_nodes.len(),
+        );
+
+        for input_node in &self.input_nodes {
+            nodes_output.insert(input_node.gene, input[input_node.gene.innovation_number]);
         }
 
         let mut output = Vec::with_capacity(self.output_nodes.len());
         for output_node in &self.output_nodes {
             let value = output_node.calculate(&self.connections, &mut nodes_output);
             output.push(value);
+        }
+
+        output
+    }
+    pub fn calculate_debug(&self, input: Vec<f32>) -> HashMap<Gene, f32> {
+        assert_eq!(input.len(), self.input_nodes.len());
+
+        let mut output = HashMap::with_capacity(
+            self.input_nodes.len() + self.hidden_nodes.len() + self.output_nodes.len(),
+        );
+
+        for input_node in &self.input_nodes {
+            output.insert(input_node.gene, input[input_node.gene.innovation_number]);
+        }
+
+        for output_node in &self.output_nodes {
+            output_node.calculate(&self.connections, &mut output);
         }
 
         output

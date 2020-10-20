@@ -86,7 +86,6 @@ impl Neat {
             let mut found = false;
             for species in &mut self.species {
                 if species.insert(client, &self.config) {
-                    println!("Found species");
                     found = true;
                     break;
                 }

@@ -21,20 +21,18 @@ impl NodeGene {
         connections: &Vec<ConnectionGene>,
         output: &mut HashMap<Gene, f32>,
     ) -> f32 {
-        Self::activate(
+        let value = Self::activate(
             connections
                 .iter()
                 .filter(|connection| connection.enabled && connection.node_to == *self)
-                .map(|connection| {
-                    let value = match output.get(&connection.node_from.gene) {
-                        Some(value) => connection.weight * value,
-                        None => connection.node_from.calculate(connections, output),
-                    };
-                    output.insert(self.gene, value);
-                    value
+                .map(|connection| match output.get(&connection.node_from.gene) {
+                    Some(value) => connection.weight * value,
+                    None => connection.weight * connection.node_from.calculate(connections, output),
                 })
                 .sum(),
-        )
+        );
+        output.insert(self.gene, value);
+        value
     }
     fn activate(value: f32) -> f32 {
         1.0 / (1.0 + (-value).exp())

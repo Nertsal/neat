@@ -56,7 +56,7 @@ impl Species {
                 .partial_cmp(&client2.borrow().score)
                 .unwrap()
         });
-        for _ in 0..((self.clients.len() as f32 * percentage) as usize) {
+        for _ in 0..((self.clients.len() as f32 * percentage).floor() as usize) {
             self.clients.remove(0);
         }
     }
