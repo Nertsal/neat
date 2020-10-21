@@ -225,9 +225,9 @@ impl Genome {
                 }
 
                 let (node_from, node_to) = if node1.x < node2.x {
-                    (node1.clone(), node2.clone())
+                    (node1, node2)
                 } else {
-                    (node2.clone(), node1.clone())
+                    (node2, node1)
                 };
 
                 if self.connections.iter().any(|connection| {
