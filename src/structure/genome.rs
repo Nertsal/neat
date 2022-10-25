@@ -40,9 +40,9 @@ impl Genome {
         Vec::from_iter(
             self.input_nodes
                 .iter()
-                .map(|node| node.clone())
-                .chain(self.hidden_nodes.iter().map(|node| node.clone()))
-                .chain(self.output_nodes.iter().map(|node| node.clone())),
+                .cloned()
+                .chain(self.hidden_nodes.clone())
+                .chain(self.output_nodes.clone()),
         )
     }
     pub fn calculate(&self, input: Vec<f32>) -> Vec<f32> {
@@ -109,17 +109,21 @@ impl Genome {
             let con1 = &genome1.connections[index1];
             let con2 = &genome2.connections[index2];
 
-            if con1.innovation_number == con2.innovation_number {
-                similar += 1;
-                weight_diff += (con1.weight - con2.weight).abs();
-                index1 += 1;
-                index2 += 1;
-            } else if con1.innovation_number > con2.innovation_number {
-                disjoint += 1;
-                index2 += 1;
-            } else {
-                disjoint += 1;
-                index1 += 1;
+            match con1.innovation_number.cmp(&con2.innovation_number) {
+                std::cmp::Ordering::Equal => {
+                    similar += 1;
+                    weight_diff += (con1.weight - con2.weight).abs();
+                    index1 += 1;
+                    index2 += 1;
+                }
+                std::cmp::Ordering::Greater => {
+                    disjoint += 1;
+                    index2 += 1;
+                }
+                std::cmp::Ordering::Less => {
+                    disjoint += 1;
+                    index1 += 1;
+                }
             }
         }
 
@@ -143,31 +147,35 @@ impl Genome {
             let con1 = genome1.connections.get(index1).unwrap();
             let con2 = genome2.connections.get(index2).unwrap();
 
-            if con1.innovation_number == con2.innovation_number {
-                if rand::thread_rng().gen_bool(0.5) {
-                    genome.connections.push(con1.clone());
-                } else {
-                    genome.connections.push(con2.clone());
+            match con1.innovation_number.cmp(&con2.innovation_number) {
+                std::cmp::Ordering::Equal => {
+                    if rand::thread_rng().gen_bool(0.5) {
+                        genome.connections.push(*con1);
+                    } else {
+                        genome.connections.push(*con2);
+                    }
+                    index1 += 1;
+                    index2 += 1;
                 }
-                index1 += 1;
-                index2 += 1;
-            } else if con1.innovation_number > con2.innovation_number {
-                index2 += 1;
-            } else {
-                genome.connections.push(con1.clone());
-                index1 += 1;
+                std::cmp::Ordering::Greater => {
+                    index2 += 1;
+                }
+                std::cmp::Ordering::Less => {
+                    genome.connections.push(*con1);
+                    index1 += 1;
+                }
             }
         }
 
         while index1 < genome1.connections.len() {
             let con1 = genome1.connections.get(index1).unwrap();
-            genome.connections.push(con1.clone());
+            genome.connections.push(*con1);
             index1 += 1;
         }
 
         for connection in &genome.connections {
-            genome.hidden_nodes.insert(connection.node_from.clone());
-            genome.hidden_nodes.insert(connection.node_to.clone());
+            genome.hidden_nodes.insert(connection.node_from);
+            genome.hidden_nodes.insert(connection.node_to);
         }
 
         genome
@@ -210,10 +218,10 @@ impl Genome {
                 let mut node2 = None;
                 for (index, node) in nodes.iter().enumerate() {
                     if index == index1 {
-                        node1 = Some(node.clone());
+                        node1 = Some(*node);
                     }
                     if index == index2 {
-                        node2 = Some(node.clone());
+                        node2 = Some(*node);
                     }
                 }
 
@@ -250,49 +258,46 @@ impl Genome {
         }
     }
     fn mutate_node(&mut self, connection_genes: &mut HashSet<ConnectionGene>) {
-        if self.connections.len() >= 1 {
-            let mut random = rand::thread_rng();
-            let connection = &self.connections[random.gen_range(0, self.connections.len())];
-            let node_from = connection.node_from;
-            let node_to = connection.node_to;
-            let mut connection = connection_genes
-                .iter()
-                .find(|connection| {
-                    connection.node_from == node_from && connection.node_to == node_to
-                })
-                .unwrap()
-                .clone();
-            let middle_x = (node_from.x + node_to.x) / 2.0;
-            let middle_y = (node_from.y + node_to.y) / 2.0;
-            let middle = match connection.replace_gene {
-                Some(gene) => NodeGene {
-                    gene,
-                    x: middle_x,
-                    y: middle_y,
-                },
-                None => NodeGene {
-                    gene: Gene::new(),
-                    x: middle_x,
-                    y: middle_y,
-                },
-            };
-            connection.replace_gene = Some(middle.gene);
-
-            let weight = connection.weight;
-            let enabled = connection.enabled;
-
-            connection_genes.replace(connection);
-
-            let connection1 =
-                Neat::get_connection_gene(connection_genes, node_from, middle, 1.0, true);
-            let connection2 =
-                Neat::get_connection_gene(connection_genes, middle, node_to, weight, enabled);
-            self.hidden_nodes.insert(middle);
-            self.connections.push(connection1);
-            self.connections.push(connection2);
-            self.connections
-                .sort_by(|con1, con2| con1.innovation_number.cmp(&con2.innovation_number))
+        if self.connections.is_empty() {
+            return;
         }
+        let mut random = rand::thread_rng();
+        let connection = &self.connections[random.gen_range(0, self.connections.len())];
+        let node_from = connection.node_from;
+        let node_to = connection.node_to;
+        let mut connection = *connection_genes
+            .iter()
+            .find(|connection| connection.node_from == node_from && connection.node_to == node_to)
+            .unwrap();
+        let middle_x = (node_from.x + node_to.x) / 2.0;
+        let middle_y = (node_from.y + node_to.y) / 2.0;
+        let middle = match connection.replace_gene {
+            Some(gene) => NodeGene {
+                gene,
+                x: middle_x,
+                y: middle_y,
+            },
+            None => NodeGene {
+                gene: Gene::new(),
+                x: middle_x,
+                y: middle_y,
+            },
+        };
+        connection.replace_gene = Some(middle.gene);
+
+        let weight = connection.weight;
+        let enabled = connection.enabled;
+
+        connection_genes.replace(connection);
+
+        let connection1 = Neat::get_connection_gene(connection_genes, node_from, middle, 1.0, true);
+        let connection2 =
+            Neat::get_connection_gene(connection_genes, middle, node_to, weight, enabled);
+        self.hidden_nodes.insert(middle);
+        self.connections.push(connection1);
+        self.connections.push(connection2);
+        self.connections
+            .sort_by(|con1, con2| con1.innovation_number.cmp(&con2.innovation_number))
     }
     fn mutate_weight_shift(&mut self, neat_config: &NeatConfig) {
         let count = self.connections.len();

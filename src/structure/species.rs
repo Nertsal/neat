@@ -10,10 +10,8 @@ pub struct Species {
 
 impl Species {
     pub fn new(representative: &mut Rc<RefCell<Client>>) -> Self {
-        let mut clients = Vec::new();
-        clients.push(representative.clone());
         Self {
-            clients,
+            clients: vec![representative.clone()],
             representative: representative.clone(),
             score: 0.0,
         }

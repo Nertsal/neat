@@ -127,15 +127,12 @@ impl Neat {
                 continue;
             }
             let mut random = rand::thread_rng();
-            match self
+            if let Ok(species) = self
                 .species
                 .choose_weighted_mut(&mut random, |species| species.score)
             {
-                Ok(species) => {
-                    client.borrow_mut().genome = species.breed(&self.config);
-                    species.insert_force(client);
-                }
-                Err(_) => (),
+                client.borrow_mut().genome = species.breed(&self.config);
+                species.insert_force(client);
             }
         }
     }
@@ -166,7 +163,7 @@ impl Neat {
             .iter()
             .find(|connection| connection.node_from == node_from && connection.node_to == node_to)
         {
-            connection.clone()
+            *connection
         } else {
             let connection = ConnectionGene::new(Gene::new(), node_from, node_to, weight, enabled);
             connection_genes.insert(connection);

@@ -12,3 +12,9 @@ impl Gene {
         }
     }
 }
+
+impl Default for Gene {
+    fn default() -> Self {
+        Self::new()
+    }
+}
