@@ -36,6 +36,7 @@ impl Genome {
             connections: Vec::new(),
         }
     }
+
     pub fn nodes(&self) -> Vec<NodeGene> {
         Vec::from_iter(
             self.input_nodes
@@ -45,6 +46,7 @@ impl Genome {
                 .chain(self.output_nodes.clone()),
         )
     }
+
     pub fn calculate(&self, input: Vec<f32>) -> Vec<f32> {
         assert_eq!(input.len(), self.input_nodes.len());
 
@@ -64,6 +66,7 @@ impl Genome {
 
         output
     }
+
     pub fn calculate_debug(&self, input: Vec<f32>) -> HashMap<Gene, f32> {
         assert_eq!(input.len(), self.input_nodes.len());
 
@@ -81,6 +84,7 @@ impl Genome {
 
         output
     }
+
     pub fn distance(&self, other: &Self, neat_config: &NeatConfig) -> f32 {
         let highest_gene1 = if let Some(gene) = self.connections.last() {
             gene.innovation_number
@@ -137,6 +141,7 @@ impl Genome {
             + neat_config.weight_diff * weight_diff)
             / n
     }
+
     pub fn cross_over(genome1: &Genome, genome2: &Genome, neat_config: &NeatConfig) -> Genome {
         let mut genome = Genome::empty(neat_config);
 
@@ -180,6 +185,7 @@ impl Genome {
 
         genome
     }
+
     pub fn mutate(
         &mut self,
         neat_config: &NeatConfig,
@@ -202,6 +208,7 @@ impl Genome {
             self.mutate_link_toggle();
         }
     }
+
     fn mutate_link(
         &mut self,
         neat_config: &NeatConfig,
@@ -257,6 +264,7 @@ impl Genome {
             }
         }
     }
+
     fn mutate_node(&mut self, connection_genes: &mut HashSet<ConnectionGene>) {
         if self.connections.is_empty() {
             return;
@@ -299,6 +307,7 @@ impl Genome {
         self.connections
             .sort_by(|con1, con2| con1.innovation_number.cmp(&con2.innovation_number))
     }
+
     fn mutate_weight_shift(&mut self, neat_config: &NeatConfig) {
         let count = self.connections.len();
         if count >= 1 {
@@ -307,6 +316,7 @@ impl Genome {
             connection.weight += random.gen_range(-1.0, 1.0) * neat_config.weight_shift_strength;
         }
     }
+
     fn mutate_weight_random(&mut self, neat_config: &NeatConfig) {
         let count = self.connections.len();
         if count >= 1 {
@@ -315,6 +325,7 @@ impl Genome {
             connection.weight = random.gen_range(-1.0, 1.0) * neat_config.weight_random_strength;
         }
     }
+
     fn mutate_link_toggle(&mut self) {
         let count = self.connections.len();
         if count >= 1 {
