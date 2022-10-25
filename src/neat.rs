@@ -53,17 +53,10 @@ impl Neat {
     }
 
     pub fn evolve(&mut self) {
-        println!("Generating species...");
         self.gen_species();
-        println!("{} species exist.", self.species.len());
-        println!("Killing worst clients...");
         self.kill();
-        println!("Remove extinct species...");
         self.remove_extinct_species();
-        println!("{} species left.", self.species.len());
-        println!("Reproducing...");
         self.reproduce();
-        println!("Mutating clients...");
         self.mutate();
     }
 
