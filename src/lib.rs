@@ -15,6 +15,7 @@ use client::*;
 use connection_gene::*;
 use gene::*;
 use genome::*;
+pub use id_generator::Id;
 use id_generator::*;
 pub use neat::*;
 use node_gene::*;
