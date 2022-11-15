@@ -1,9 +1,11 @@
 use super::*;
+
 use rand::Rng;
+
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Genome {
     pub input_nodes: HashSet<NodeGene>,
     pub hidden_nodes: HashSet<NodeGene>,
@@ -215,25 +217,17 @@ impl Genome {
         connection_genes: &mut HashSet<ConnectionGene>,
     ) {
         let mut random = rand::thread_rng();
-        let nodes = self.nodes();
-        if nodes.len() >= 2 {
+        let nodes: Vec<_> = self
+            .input_nodes
+            .iter()
+            .chain(&self.hidden_nodes)
+            .chain(&self.output_nodes)
+            .collect();
+        let nodes_len = self.input_nodes.len() + self.hidden_nodes.len() + self.output_nodes.len();
+        if nodes_len >= 2 {
             for _ in 0..10 {
-                let index1 = random.gen_range(0, nodes.len());
-                let index2 = random.gen_range(0, nodes.len());
-
-                let mut node1 = None;
-                let mut node2 = None;
-                for (index, node) in nodes.iter().enumerate() {
-                    if index == index1 {
-                        node1 = Some(*node);
-                    }
-                    if index == index2 {
-                        node2 = Some(*node);
-                    }
-                }
-
-                let node1 = node1.unwrap();
-                let node2 = node2.unwrap();
+                let node1 = **nodes.choose(&mut random).unwrap();
+                let node2 = **nodes.choose(&mut random).unwrap();
 
                 if node1.x == node2.x {
                     continue;
@@ -333,11 +327,5 @@ impl Genome {
             let connection = &mut self.connections[random.gen_range(0, count)];
             connection.enabled = !connection.enabled;
         }
-    }
-}
-
-impl PartialEq for Genome {
-    fn eq(&self, other: &Self) -> bool {
-        self.nodes() == other.nodes() && self.connections == other.connections
     }
 }
